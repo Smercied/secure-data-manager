@@ -556,3 +556,80 @@
     )
 )
 
+
+(define-public (check-access-expiration (item-id uint))
+    (let
+        (
+            (access-data (map-get? item-permissions { item-id: item-id, user: tx-sender }))
+        )
+        (if (is-some access-data)
+            (let
+                (
+                    (expiration-time (get timestamp-expiration (unwrap! access-data (err ERROR_ACCESS_DENIED))))
+                    (current-time block-height)
+                )
+                (if (> current-time expiration-time)
+                    (err ERROR_ACCESS_DENIED)
+                    (ok true)
+                )
+            )
+            (err ERROR_ACCESS_DENIED)
+        )
+    )
+)
+
+(define-public (enhanced-remove-access
+    (item-id uint)
+    (target-user principal)
+)
+    (begin
+        (asserts! (item-exists item-id) ERROR_ITEM_NOT_FOUND)
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (asserts! (is-different-user target-user) ERROR_BAD_INPUT)
+        (map-delete item-permissions { item-id: item-id, user: target-user })
+        (ok true)
+    )
+)
+
+(define-public (remove-item-improved-v2 (item-id uint))
+    (begin
+        (asserts! (item-exists item-id) ERROR_ITEM_NOT_FOUND)
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (map-delete secure-items { item-id: item-id })
+        (ok true)
+    )
+)
+
+(define-public (validated-update-item
+    (item-id uint)
+    (new-name (string-ascii 50))
+    (new-fingerprint (string-ascii 64))
+    (new-details (string-ascii 200))
+    (new-tags (list 5 (string-ascii 30)))
+)
+    (begin
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (ok (update-item-data item-id new-name new-fingerprint new-details new-tags))
+    )
+)
+
+(define-public (calculate-access-remaining (item-id uint) (user principal))
+    (let
+        (
+            (access-data (unwrap! (map-get? item-permissions { item-id: item-id, user: user }) ERROR_ACCESS_DENIED))
+            (expiration-time (get timestamp-expiration access-data))
+            (current-time block-height)
+        )
+        (ok (- expiration-time current-time))
+    )
+)
+
+(define-public (safe-remove-item (item-id uint))
+    (begin
+        (asserts! (item-exists item-id) ERROR_ITEM_NOT_FOUND)
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (map-delete secure-items { item-id: item-id })
+        (ok true)
+    )
+)
+
