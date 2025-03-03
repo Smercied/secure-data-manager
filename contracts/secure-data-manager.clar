@@ -451,4 +451,185 @@
     )
 )
 
+(define-public (optimized-store-item
+    (name (string-ascii 50))
+    (data-fingerprint (string-ascii 64))
+    (details (string-ascii 200))
+    (group (string-ascii 20))
+    (tags (list 5 (string-ascii 30)))
+)
+    (let
+        (
+            (next-id (+ (var-get item-counter) u1))
+            (current-block block-height)
+        )
+        (asserts! (is-name-valid name) ERROR_BAD_INPUT)
+        (asserts! (is-fingerprint-valid data-fingerprint) ERROR_BAD_INPUT)
+        (asserts! (is-details-valid details) ERROR_METADATA_INVALID)
+        (asserts! (is-group-valid group) ERROR_GROUP_INVALID)
+        (asserts! (are-tags-valid tags) ERROR_METADATA_INVALID)
+
+        (map-set secure-items
+            { item-id: next-id }
+            {
+                name: name,
+                creator: tx-sender,
+                data-fingerprint: data-fingerprint,
+                details: details,
+                timestamp-created: current-block,
+                timestamp-updated: current-block,
+                group: group,
+                tags: tags
+            }
+        )
+
+        (var-set item-counter next-id)
+        (ok next-id)
+    )
+)
+
+(define-public (enhanced-update-item
+    (item-id uint)
+    (new-name (string-ascii 50))
+    (new-fingerprint (string-ascii 64))
+    (new-details (string-ascii 200))
+    (new-tags (list 5 (string-ascii 30)))
+)
+    (let
+        (
+            (item-data (unwrap! (map-get? secure-items { item-id: item-id }) ERROR_ITEM_NOT_FOUND))
+        )
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (asserts! (is-name-valid new-name) ERROR_BAD_INPUT)
+        (asserts! (is-fingerprint-valid new-fingerprint) ERROR_BAD_INPUT)
+        (asserts! (is-details-valid new-details) ERROR_METADATA_INVALID)
+        (asserts! (are-tags-valid new-tags) ERROR_METADATA_INVALID)
+
+        (map-set secure-items
+            { item-id: item-id }
+            (merge item-data {
+                name: new-name,
+                data-fingerprint: new-fingerprint,
+                details: new-details,
+                timestamp-updated: block-height,
+                tags: new-tags
+            })
+        )
+        (ok true)
+    )
+)
+
+(define-public (create-optimized-item
+    (name (string-ascii 50))
+    (data-fingerprint (string-ascii 64))
+    (details (string-ascii 200))
+    (group (string-ascii 20))
+    (tags (list 5 (string-ascii 30)))
+)
+    (let
+        (
+            (next-id (+ (var-get item-counter) u1))
+            (current-block block-height)
+        )
+        (asserts! (is-name-valid name) ERROR_BAD_INPUT)
+        (asserts! (is-fingerprint-valid data-fingerprint) ERROR_BAD_INPUT)
+        (asserts! (is-details-valid details) ERROR_METADATA_INVALID)
+        (asserts! (is-group-valid group) ERROR_GROUP_INVALID)
+        (asserts! (are-tags-valid tags) ERROR_METADATA_INVALID)
+
+        (map-set enhanced-secure-items
+            { item-id: next-id }
+            {
+                name: name,
+                creator: tx-sender,
+                data-fingerprint: data-fingerprint,
+                details: details,
+                timestamp-created: current-block,
+                timestamp-updated: current-block,
+                group: group,
+                tags: tags
+            }
+        )
+
+        (var-set item-counter next-id)
+        (ok next-id)
+    )
+)
+
+
+(define-public (check-access-expiration (item-id uint))
+    (let
+        (
+            (access-data (map-get? item-permissions { item-id: item-id, user: tx-sender }))
+        )
+        (if (is-some access-data)
+            (let
+                (
+                    (expiration-time (get timestamp-expiration (unwrap! access-data (err ERROR_ACCESS_DENIED))))
+                    (current-time block-height)
+                )
+                (if (> current-time expiration-time)
+                    (err ERROR_ACCESS_DENIED)
+                    (ok true)
+                )
+            )
+            (err ERROR_ACCESS_DENIED)
+        )
+    )
+)
+
+(define-public (enhanced-remove-access
+    (item-id uint)
+    (target-user principal)
+)
+    (begin
+        (asserts! (item-exists item-id) ERROR_ITEM_NOT_FOUND)
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (asserts! (is-different-user target-user) ERROR_BAD_INPUT)
+        (map-delete item-permissions { item-id: item-id, user: target-user })
+        (ok true)
+    )
+)
+
+(define-public (remove-item-improved-v2 (item-id uint))
+    (begin
+        (asserts! (item-exists item-id) ERROR_ITEM_NOT_FOUND)
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (map-delete secure-items { item-id: item-id })
+        (ok true)
+    )
+)
+
+(define-public (validated-update-item
+    (item-id uint)
+    (new-name (string-ascii 50))
+    (new-fingerprint (string-ascii 64))
+    (new-details (string-ascii 200))
+    (new-tags (list 5 (string-ascii 30)))
+)
+    (begin
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (ok (update-item-data item-id new-name new-fingerprint new-details new-tags))
+    )
+)
+
+(define-public (calculate-access-remaining (item-id uint) (user principal))
+    (let
+        (
+            (access-data (unwrap! (map-get? item-permissions { item-id: item-id, user: user }) ERROR_ACCESS_DENIED))
+            (expiration-time (get timestamp-expiration access-data))
+            (current-time block-height)
+        )
+        (ok (- expiration-time current-time))
+    )
+)
+
+(define-public (safe-remove-item (item-id uint))
+    (begin
+        (asserts! (item-exists item-id) ERROR_ITEM_NOT_FOUND)
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (map-delete secure-items { item-id: item-id })
+        (ok true)
+    )
+)
 
