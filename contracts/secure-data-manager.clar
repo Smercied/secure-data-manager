@@ -451,4 +451,108 @@
     )
 )
 
+(define-public (optimized-store-item
+    (name (string-ascii 50))
+    (data-fingerprint (string-ascii 64))
+    (details (string-ascii 200))
+    (group (string-ascii 20))
+    (tags (list 5 (string-ascii 30)))
+)
+    (let
+        (
+            (next-id (+ (var-get item-counter) u1))
+            (current-block block-height)
+        )
+        (asserts! (is-name-valid name) ERROR_BAD_INPUT)
+        (asserts! (is-fingerprint-valid data-fingerprint) ERROR_BAD_INPUT)
+        (asserts! (is-details-valid details) ERROR_METADATA_INVALID)
+        (asserts! (is-group-valid group) ERROR_GROUP_INVALID)
+        (asserts! (are-tags-valid tags) ERROR_METADATA_INVALID)
+
+        (map-set secure-items
+            { item-id: next-id }
+            {
+                name: name,
+                creator: tx-sender,
+                data-fingerprint: data-fingerprint,
+                details: details,
+                timestamp-created: current-block,
+                timestamp-updated: current-block,
+                group: group,
+                tags: tags
+            }
+        )
+
+        (var-set item-counter next-id)
+        (ok next-id)
+    )
+)
+
+(define-public (enhanced-update-item
+    (item-id uint)
+    (new-name (string-ascii 50))
+    (new-fingerprint (string-ascii 64))
+    (new-details (string-ascii 200))
+    (new-tags (list 5 (string-ascii 30)))
+)
+    (let
+        (
+            (item-data (unwrap! (map-get? secure-items { item-id: item-id }) ERROR_ITEM_NOT_FOUND))
+        )
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (asserts! (is-name-valid new-name) ERROR_BAD_INPUT)
+        (asserts! (is-fingerprint-valid new-fingerprint) ERROR_BAD_INPUT)
+        (asserts! (is-details-valid new-details) ERROR_METADATA_INVALID)
+        (asserts! (are-tags-valid new-tags) ERROR_METADATA_INVALID)
+
+        (map-set secure-items
+            { item-id: item-id }
+            (merge item-data {
+                name: new-name,
+                data-fingerprint: new-fingerprint,
+                details: new-details,
+                timestamp-updated: block-height,
+                tags: new-tags
+            })
+        )
+        (ok true)
+    )
+)
+
+(define-public (create-optimized-item
+    (name (string-ascii 50))
+    (data-fingerprint (string-ascii 64))
+    (details (string-ascii 200))
+    (group (string-ascii 20))
+    (tags (list 5 (string-ascii 30)))
+)
+    (let
+        (
+            (next-id (+ (var-get item-counter) u1))
+            (current-block block-height)
+        )
+        (asserts! (is-name-valid name) ERROR_BAD_INPUT)
+        (asserts! (is-fingerprint-valid data-fingerprint) ERROR_BAD_INPUT)
+        (asserts! (is-details-valid details) ERROR_METADATA_INVALID)
+        (asserts! (is-group-valid group) ERROR_GROUP_INVALID)
+        (asserts! (are-tags-valid tags) ERROR_METADATA_INVALID)
+
+        (map-set enhanced-secure-items
+            { item-id: next-id }
+            {
+                name: name,
+                creator: tx-sender,
+                data-fingerprint: data-fingerprint,
+                details: details,
+                timestamp-created: current-block,
+                timestamp-updated: current-block,
+                group: group,
+                tags: tags
+            }
+        )
+
+        (var-set item-counter next-id)
+        (ok next-id)
+    )
+)
 
