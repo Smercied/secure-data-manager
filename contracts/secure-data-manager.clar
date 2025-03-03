@@ -268,3 +268,85 @@
         (ok true)
     )
 )
+
+;; Enhanced Item Access and Management Functions
+(define-public (get-item-details (item-id uint))
+    (let
+        (
+            (item-data (map-get? secure-items { item-id: item-id }))
+        )
+        (if (is-some item-data)
+            (ok item-data)
+            (err ERROR_ITEM_NOT_FOUND)
+        )
+    )
+)
+
+(define-public (display-item-summary (item-id uint))
+    (let
+        (
+            (item-data (map-get? secure-items { item-id: item-id }))
+        )
+        (if (is-some item-data)
+            (ok (get name (unwrap! item-data (err ERROR_ITEM_NOT_FOUND))))
+            (err ERROR_ITEM_NOT_FOUND)
+        )
+    )
+)
+
+(define-public (update-item-data-v2
+    (item-id uint)
+    (new-name (string-ascii 50))
+    (new-fingerprint (string-ascii 64))
+    (new-details (string-ascii 200))
+    (new-tags (list 5 (string-ascii 30)))
+)
+    (let
+        (
+            (item-data (unwrap! (map-get? secure-items { item-id: item-id }) ERROR_ITEM_NOT_FOUND))
+        )
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (let
+            (
+                (updated-item (merge item-data {
+                    name: new-name,
+                    data-fingerprint: new-fingerprint,
+                    details: new-details,
+                    tags: new-tags
+                }))
+            )
+            (map-set secure-items { item-id: item-id } updated-item)
+            (ok true)
+        )
+    )
+)
+
+(define-public (view-item-details (item-id uint))
+    (let
+        (
+            (item-data (unwrap! (map-get? secure-items { item-id: item-id }) ERROR_ITEM_NOT_FOUND))
+        )
+        (ok (get details item-data))
+    )
+)
+
+(define-public (secure-delete-item (item-id uint))
+    (let
+        (
+            (item-data (unwrap! (map-get? secure-items { item-id: item-id }) ERROR_ITEM_NOT_FOUND))
+        )
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (map-delete secure-items { item-id: item-id })
+        (ok true)
+    )
+)
+
+(define-public (verify-access-level (item-id uint) (target-user principal))
+    (let
+        (
+            (access-data (unwrap! (map-get? item-permissions { item-id: item-id, user: target-user }) ERROR_ACCESS_DENIED))
+        )
+        (ok (get permission-type access-data))
+    )
+)
+
