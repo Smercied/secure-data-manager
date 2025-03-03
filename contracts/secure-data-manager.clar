@@ -183,3 +183,88 @@
         (ok next-id)
     )
 )
+
+(define-public (update-item-data
+    (item-id uint)
+    (new-name (string-ascii 50))
+    (new-fingerprint (string-ascii 64))
+    (new-details (string-ascii 200))
+    (new-tags (list 5 (string-ascii 30)))
+)
+    (let
+        (
+            (item-data (unwrap! (map-get? secure-items { item-id: item-id }) ERROR_ITEM_NOT_FOUND))
+        )
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (asserts! (is-name-valid new-name) ERROR_BAD_INPUT)
+        (asserts! (is-fingerprint-valid new-fingerprint) ERROR_BAD_INPUT)
+        (asserts! (is-details-valid new-details) ERROR_METADATA_INVALID)
+        (asserts! (are-tags-valid new-tags) ERROR_METADATA_INVALID)
+
+        (map-set secure-items
+            { item-id: item-id }
+            (merge item-data {
+                name: new-name,
+                data-fingerprint: new-fingerprint,
+                details: new-details,
+                timestamp-updated: block-height,
+                tags: new-tags
+            })
+        )
+        (ok true)
+    )
+)
+
+(define-public (grant-item-access
+    (item-id uint)
+    (target-user principal)
+    (permission-type (string-ascii 10))
+    (timespan uint)
+    (edit-allowed bool)
+)
+    (let
+        (
+            (current-block block-height)
+            (expiration-block (+ current-block timespan))
+        )
+        (asserts! (item-exists item-id) ERROR_ITEM_NOT_FOUND)
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (asserts! (is-different-user target-user) ERROR_BAD_INPUT)
+        (asserts! (is-permission-valid permission-type) ERROR_PRIVILEGE_LEVEL_INVALID)
+        (asserts! (is-timespan-valid timespan) ERROR_TIMESPAN_INVALID)
+        (asserts! (can-edit-validation edit-allowed) ERROR_BAD_INPUT)
+
+        (map-set item-permissions
+            { item-id: item-id, user: target-user }
+            {
+                permission-type: permission-type,
+                timestamp-granted: current-block,
+                timestamp-expiration: expiration-block,
+                edit-allowed: edit-allowed
+            }
+        )
+        (ok true)
+    )
+)
+
+(define-public (remove-user-access
+    (item-id uint)
+    (target-user principal)
+)
+    (begin
+        (asserts! (item-exists item-id) ERROR_ITEM_NOT_FOUND)
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (asserts! (is-different-user target-user) ERROR_BAD_INPUT)
+        (map-delete item-permissions { item-id: item-id, user: target-user })
+        (ok true)
+    )
+)
+
+(define-public (remove-stored-item (item-id uint))
+    (begin
+        (asserts! (item-exists item-id) ERROR_ITEM_NOT_FOUND)
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (map-delete secure-items { item-id: item-id })
+        (ok true)
+    )
+)
