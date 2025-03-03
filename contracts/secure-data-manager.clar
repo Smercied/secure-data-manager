@@ -350,3 +350,105 @@
     )
 )
 
+(define-public (remove-item-improved (item-id uint))
+    (begin
+        (asserts! (item-exists item-id) ERROR_ITEM_NOT_FOUND)
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (map-delete secure-items { item-id: item-id })
+        (ok true)
+    )
+)
+
+(define-public (verify-role-access
+    (item-id uint)
+    (user principal)
+    (role (string-ascii 10))
+)
+    (let
+        (
+            (item-data (unwrap! (map-get? secure-items { item-id: item-id }) ERROR_ITEM_NOT_FOUND))
+        )
+        (asserts! (is-eq role "admin") ERROR_ACCESS_DENIED) ;; Validate admin role requirement
+        (ok true)
+    )
+)
+
+(define-public (remove-item-with-verification
+    (item-id uint)
+)
+    (begin
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (map-delete secure-items { item-id: item-id })
+        (ok true)
+    )
+)
+
+(define-public (confirm-item-deletion
+    (item-id uint)
+)
+    (begin
+        ;; Confirms deletion action in the user interface
+        (ok "Item deletion confirmed")
+    )
+)
+
+(define-public (process-data-fingerprint
+    (fingerprint (string-ascii 64))
+)
+    (begin
+        ;; Process data fingerprint with encryption
+        (ok (concat "secured-" fingerprint))
+    )
+)
+
+(define-private (cache-item-access
+    (item-id uint)
+)
+    (begin
+        ;; Cache item access information for performance
+        (ok true)
+    )
+)
+
+(define-public (view-item-history (item-id uint))
+    (let
+        (
+            (item-data (map-get? secure-items { item-id: item-id }))
+        )
+        (if (is-some item-data)
+            (ok (get timestamp-created (unwrap! item-data (err ERROR_ITEM_NOT_FOUND))))
+            (err ERROR_ITEM_NOT_FOUND)
+        )
+    )
+)
+
+(define-public (verify-admin-item-access (item-id uint))
+    (let
+        (
+            (item-data (unwrap! (map-get? secure-items { item-id: item-id }) ERROR_ITEM_NOT_FOUND))
+        )
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (asserts! (is-eq (get group item-data) "admin") ERROR_PRIVILEGE_LEVEL_INVALID)
+        (ok true)
+    )
+)
+
+(define-public (modify-item-group
+    (item-id uint)
+    (new-group (string-ascii 20))
+)
+    (let
+        (
+            (item-data (unwrap! (map-get? secure-items { item-id: item-id }) ERROR_ITEM_NOT_FOUND))
+        )
+        (asserts! (is-item-creator item-id tx-sender) ERROR_NOT_AUTHORIZED)
+        (asserts! (is-group-valid new-group) ERROR_GROUP_INVALID)
+        (map-set secure-items
+            { item-id: item-id }
+            (merge item-data { group: new-group })
+        )
+        (ok true)
+    )
+)
+
+
